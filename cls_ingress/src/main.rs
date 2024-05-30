@@ -21,7 +21,6 @@ use nix::sys::socket::{
 struct Opt {
     #[clap(short, long, default_value = "lo")]
     iface: String,
-
     #[clap(short, long, default_value = "wlo1")]
     wan_iface: String,
     #[clap(short, long, default_value = "127.0.0.1")]
@@ -65,16 +64,31 @@ async fn main() -> Result<(), anyhow::Error> {
     }
     // error adding clsact to the interface if it is already added is harmless
     // the full cleanup can be done with 'sudo tc qdisc del dev eth0 clsact'.
+
+    // ingress & egress for lan
+    let _ = tc::qdisc_add_clsact(&opt.iface);
     {
-        let _ = tc::qdisc_add_clsact(&opt.iface);
-        let program: &mut SchedClassifier = bpf.program_mut("cls_ingress").unwrap().try_into()?;
+        let program: &mut SchedClassifier = bpf.program_mut("lan_ingress").unwrap().try_into()?;
         program.load()?;
         program.attach(&opt.iface, tc::TcAttachType::Ingress)?;
     }
 
     {
-        let _ = tc::qdisc_add_clsact(&opt.wan_iface);
-        let program: &mut SchedClassifier = bpf.program_mut("cls_egress").unwrap().try_into()?;
+        let program: &mut SchedClassifier = bpf.program_mut("lan_egress").unwrap().try_into()?;
+        program.load()?;
+        program.attach(&opt.iface, tc::TcAttachType::Egress)?;
+    }
+
+    // ingress & egress for wan
+    let _ = tc::qdisc_add_clsact(&opt.wan_iface);
+    {
+        let program: &mut SchedClassifier = bpf.program_mut("wan_ingress").unwrap().try_into()?;
+        program.load()?;
+        program.attach(&opt.wan_iface, tc::TcAttachType::Ingress)?;
+    }
+
+    {
+        let program: &mut SchedClassifier = bpf.program_mut("wan_egress").unwrap().try_into()?;
         program.load()?;
         program.attach(&opt.wan_iface, tc::TcAttachType::Egress)?;
     }
