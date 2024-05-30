@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aya-ebpf = { path = "../../../aya/ebpf/aya-ebpf"}
-aya-log-ebpf = { path = "../../../aya/ebpf/aya-log-ebpf"}
+aya-ebpf = "0.1.0"
+aya-log-ebpf = "0.1.0"
 cls_ingress-common = { path = "../cls_ingress-common" }
 network-types = "0.0.4"
 
