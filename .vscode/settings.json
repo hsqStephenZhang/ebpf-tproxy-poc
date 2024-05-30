@@ -1,0 +1,3 @@
+{
+  "rust-analyzer.linkedProjects": ["Cargo.toml", "cls_ingress-ebpf/Cargo.toml"]
+}
