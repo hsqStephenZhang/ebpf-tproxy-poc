@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use core::mem;
+use core::mem::{self, offset_of};
 
 use aya_ebpf::{
     bindings::*,
@@ -115,7 +115,7 @@ pub fn lan_egress(ctx: TcContext) -> i32 {
     TC_ACT_OK
 }
 
-fn try_lan_ingress(ctx: TcContext) -> Result<i32, i32> {
+fn try_lan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
     let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; //
 
     match unsafe { (*ethhdr).ether_type } {
@@ -159,6 +159,56 @@ fn try_lan_ingress(ctx: TcContext) -> Result<i32, i32> {
             mark,
             pkt_type
         );
+        
+        // {
+        //     let smac = unsafe { (*ethhdr).src_addr };
+        //     let dmac = unsafe { (*ethhdr).dst_addr };
+
+        //     // info!(&ctx, "smac: {:mac}, dmac: {:mac}", smac, dmac);
+        //     let lo_mac = [0; 6];
+        //     if ctx.store(offset_of!(EthHdr, dst_addr), &lo_mac, 0).is_err() {
+        //         error!(&ctx, "failed to set dst mac");
+        //         return Err(TC_ACT_SHOT);
+        //     }
+        //     if ctx.store(offset_of!(EthHdr, src_addr), &lo_mac, 0).is_err() {
+        //         error!(&ctx, "failed to set dst mac");
+        //         return Err(TC_ACT_SHOT);
+        //     }
+        // }
+        // {
+        //     const IP_DST_OFF: usize = mem::size_of::<EthHdr>() + offset_of!(Ipv4Hdr, dst_addr);
+        //     const IP_SRC_OFF: usize = mem::size_of::<EthHdr>() + offset_of!(Ipv4Hdr, src_addr);
+        //     const IP_CSUM_OFF: usize =
+        //         mem::size_of::<EthHdr>() + mem::size_of::<Ipv4Hdr>() + offset_of!(TcpHdr, check);
+        //     const IS_PSEUDO: u64 = 0x10;
+        //     const LO: u32 = u32::from_be(0x7f000001_u32);
+
+        //     let dst1: u32 = match ctx.load(IP_DST_OFF) {
+        //         Ok(dst) => dst,
+        //         Err(_) => return Err(TC_ACT_SHOT),
+        //     };
+        //     let src1: u32 = match ctx.load(IP_SRC_OFF) {
+        //         Ok(src) => src,
+        //         Err(_) => return Err(TC_ACT_SHOT),
+        //     };
+
+        //     // info!(&ctx, "src1: {:i}, dst1: {:i}", src1, dst1);
+        //     // info!(&ctx, "lo: {:i}, lo: {:i}", lo, lo);
+
+        //     let size = mem::size_of::<u32>() as u64 | IS_PSEUDO;
+        //     if ctx
+        //         .l4_csum_replace(IP_CSUM_OFF, dst1 as _, LO as _, size)
+        //         .is_err()
+        //     {
+        //         error!(&ctx, "failed to replace csum");
+        //         return Err(TC_ACT_SHOT);
+        //     }
+        //     if ctx.store(IP_DST_OFF, &LO, 0).is_err() {
+        //         error!(&ctx, "failed to set dst ip");
+        //         return Err(TC_ACT_SHOT);
+        //     }
+        // }
+        
         // set pkt type to PACKET_HOST, so it won't get dropped
         unsafe {
             bpf_skb_change_type(ctx.as_ptr() as *mut _, 0);
