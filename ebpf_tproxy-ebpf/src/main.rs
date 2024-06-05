@@ -17,7 +17,6 @@ use network_types::{
     eth::{EthHdr, EtherType},
     ip::{IpProto, Ipv4Hdr},
     tcp::TcpHdr,
-    udp::UdpHdr,
 };
 
 #[inline(always)]
