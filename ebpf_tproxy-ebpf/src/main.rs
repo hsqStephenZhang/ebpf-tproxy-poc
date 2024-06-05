@@ -19,77 +19,83 @@ use network_types::{
     tcp::TcpHdr,
 };
 
-#[inline(always)]
-fn ptr_at<T>(ctx: &TcContext, offset: usize) -> Result<*const T, i32> {
-    let start = ctx.data();
-    let end = ctx.data_end();
-    let len = mem::size_of::<T>();
+mod utils {
+    use super::*;
 
-    if start + offset + len > end {
-        return Err(TC_ACT_OK);
-    }
+    #[inline(always)]
+    fn ptr_at<T>(ctx: &TcContext, offset: usize) -> Result<*const T, i32> {
+        let start = ctx.data();
+        let end = ctx.data_end();
+        let len = mem::size_of::<T>();
 
-    Ok((start + offset) as *const T)
-}
-
-fn get_tcp_v4_tuple(ctx: &TcContext) -> Option<bpf_sock_tuple> {
-    let ethhdr: *const EthHdr = ptr_at(&ctx, 0).ok()?;
-    if unsafe { (*ethhdr).ether_type } != EtherType::Ipv4 {
-        return None;
-    }
-
-    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN).ok()?;
-    let proto = unsafe { (*ipv4hdr).proto };
-    let (sport, dport) = match proto {
-        IpProto::Tcp => {
-            let tcphdr: *const TcpHdr = ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN).ok()?;
-            (
-                u16::from_be(unsafe { (*tcphdr).source }),
-                u16::from_be(unsafe { (*tcphdr).dest }),
-            )
+        if start + offset + len > end {
+            return Err(TC_ACT_OK);
         }
-        _ => return None,
-    };
 
-    let src = u32::from_be(unsafe { (*ipv4hdr).src_addr });
-    let dst = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
+        Ok((start + offset) as *const T)
+    }
 
-    let ipv4 = bpf_sock_tuple__bindgen_ty_1__bindgen_ty_1 {
-        saddr: src.to_be(),
-        daddr: dst.to_be(),
-        sport: sport.to_be(),
-        dport: dport.to_be(),
-    };
-    let inner = bpf_sock_tuple__bindgen_ty_1 { ipv4: ipv4 };
-    let tuple = bpf_sock_tuple {
-        __bindgen_anon_1: inner,
-    };
+    pub(crate) fn get_tcp_v4_tuple(ctx: &TcContext) -> Option<bpf_sock_tuple> {
+        let ethhdr: *const EthHdr = ptr_at(&ctx, 0).ok()?;
+        if unsafe { (*ethhdr).ether_type } != EtherType::Ipv4 {
+            return None;
+        }
 
-    Some(tuple)
-}
+        let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN).ok()?;
+        let proto = unsafe { (*ipv4hdr).proto };
+        let (sport, dport) = match proto {
+            IpProto::Tcp => {
+                let tcphdr: *const TcpHdr = ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN).ok()?;
+                (
+                    u16::from_be(unsafe { (*tcphdr).source }),
+                    u16::from_be(unsafe { (*tcphdr).dest }),
+                )
+            }
+            _ => return None,
+        };
 
-// SAFETY: the tuple is a ipv4 one
-unsafe fn unpack_bpf_sock_tuple_v4(tuple: bpf_sock_tuple) -> (u32, u32, u16, u16) {
-    let src = u32::from_be(tuple.__bindgen_anon_1.ipv4.saddr);
-    let dst = u32::from_be(tuple.__bindgen_anon_1.ipv4.daddr);
-    let sport = u16::from_be(tuple.__bindgen_anon_1.ipv4.sport);
-    let dport = u16::from_be(tuple.__bindgen_anon_1.ipv4.dport);
-    (src, dst, sport, dport)
-}
+        let src = u32::from_be(unsafe { (*ipv4hdr).src_addr });
+        let dst = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
 
-// SAFETU: the sk is valid
-unsafe fn assign(ctx: &TcContext, sk: *mut bpf_sock) {
-    unsafe {
-        bpf_sk_assign(ctx.as_ptr() as *mut _, sk as *mut _, 0);
-        bpf_sk_release(sk as *mut _);
+        let ipv4 = bpf_sock_tuple__bindgen_ty_1__bindgen_ty_1 {
+            saddr: src.to_be(),
+            daddr: dst.to_be(),
+            sport: sport.to_be(),
+            dport: dport.to_be(),
+        };
+        let inner = bpf_sock_tuple__bindgen_ty_1 { ipv4: ipv4 };
+        let tuple = bpf_sock_tuple {
+            __bindgen_anon_1: inner,
+        };
+
+        Some(tuple)
+    }
+
+    // SAFETY: the tuple is a ipv4 one
+    pub(crate) unsafe fn unpack_bpf_sock_tuple_v4(tuple: bpf_sock_tuple) -> (u32, u32, u16, u16) {
+        let src = u32::from_be(tuple.__bindgen_anon_1.ipv4.saddr);
+        let dst = u32::from_be(tuple.__bindgen_anon_1.ipv4.daddr);
+        let sport = u16::from_be(tuple.__bindgen_anon_1.ipv4.sport);
+        let dport = u16::from_be(tuple.__bindgen_anon_1.ipv4.dport);
+        (src, dst, sport, dport)
+    }
+
+    // SAFETU: the sk is valid
+    pub(crate) unsafe fn assign(ctx: &TcContext, sk: *mut bpf_sock) {
+        unsafe {
+            bpf_sk_assign(ctx.as_ptr() as *mut _, sk as *mut _, 0);
+            bpf_sk_release(sk as *mut _);
+        }
+    }
+
+    // get details about the skb, which are important for routing
+    pub(crate) fn get_skb_details(ctx: &TcContext) -> (u32, u32) {
+        let ctx = &unsafe { *(ctx.as_ptr() as *const __sk_buff) };
+        (ctx.mark, ctx.pkt_type)
     }
 }
 
-// get details about the skb, which are important for routing
-fn get_skb_details(ctx: &TcContext) -> (u32, u32) {
-    let ctx = &unsafe { *(ctx.as_ptr() as *const __sk_buff) };
-    (ctx.mark, ctx.pkt_type)
-}
+use utils::*;
 
 // assign the sk to tproxy socket, so inet_lookup will steal the sock and hand it to
 // the tproxy progress
@@ -123,6 +129,23 @@ pub fn lan_egress(ctx: TcContext) -> i32 {
     }
 
     TC_ACT_OK
+}
+
+#[classifier]
+pub fn wan_ingress(ctx: TcContext) -> i32 {
+    match try_wan_ingress(ctx) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
+}
+
+// redirect the egress traffic to `lo`
+#[classifier]
+pub fn wan_egress(ctx: TcContext) -> i32 {
+    match try_wan_egress(ctx) {
+        Ok(ret) => ret,
+        Err(ret) => ret,
+    }
 }
 
 fn try_lan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
@@ -226,14 +249,6 @@ fn try_lan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
     }
 
     Ok(TC_ACT_OK)
-}
-
-#[classifier]
-pub fn wan_ingress(ctx: TcContext) -> i32 {
-    match try_wan_ingress(ctx) {
-        Ok(ret) => ret,
-        Err(ret) => ret,
-    }
 }
 
 pub fn try_wan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
@@ -342,15 +357,6 @@ pub fn try_wan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
     }
 
     Ok(TC_ACT_OK)
-}
-
-// redirect the egress traffic to `lo`
-#[classifier]
-pub fn wan_egress(ctx: TcContext) -> i32 {
-    match try_wan_egress(ctx) {
-        Ok(ret) => ret,
-        Err(ret) => ret,
-    }
 }
 
 fn try_wan_egress(mut ctx: TcContext) -> Result<i32, i32> {
