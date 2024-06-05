@@ -372,6 +372,7 @@ pub fn try_wan_ingress(mut ctx: TcContext) -> Result<i32, i32> {
     Ok(TC_ACT_OK)
 }
 
+// egress of wan => ingress of `loopback` device
 fn try_wan_egress(mut ctx: TcContext) -> Result<i32, i32> {
     let tuple = match get_tcp_v4_tuple(&ctx) {
         Some(tuple) => tuple,
@@ -455,6 +456,7 @@ fn try_tproxy_sockops(ctx: SockOpsContext) -> Result<u32, u32> {
                     tuple.dst.addr.to_be(),
                     tuple.dst.port
                 );
+                // set flags, so the kernel will trigger BPF_SOCK_OPS_STATE_CB events
                 let _ = ctx.set_cb_flags(BPF_SOCK_OPS_ALL_CB_FLAGS as _);
                 unsafe {
                     let _ = INTERCEPT_EGRESS_V4.update(&mut tuple, &mut (*ctx.ops), BPF_ANY as _);
