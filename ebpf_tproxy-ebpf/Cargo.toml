@@ -1,16 +1,16 @@
 [package]
-name = "cls_ingress-ebpf"
+name = "ebpf_tproxy-ebpf"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 aya-ebpf = "0.1.0"
 aya-log-ebpf = "0.1.0"
-cls_ingress-common = { path = "../cls_ingress-common" }
+ebpf_tproxy-common = { path = "../ebpf_tproxy-common" }
 network-types = "0.0.4"
 
 [[bin]]
-name = "cls_ingress"
+name = "ebpf_tproxy"
 path = "src/main.rs"
 
 [profile.dev]

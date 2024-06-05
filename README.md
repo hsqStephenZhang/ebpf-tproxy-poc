@@ -1,4 +1,4 @@
-# cls_ingress
+# ebpf_tproxy
 
 ## Prerequisites
 

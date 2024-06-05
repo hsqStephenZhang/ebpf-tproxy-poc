@@ -52,11 +52,11 @@ async fn main() -> Result<(), anyhow::Error> {
     // reach for `Bpf::load_file` instead.
     #[cfg(debug_assertions)]
     let mut bpf = Bpf::load(include_bytes_aligned!(
-        "../../target/bpfel-unknown-none/debug/cls_ingress"
+        "../../target/bpfel-unknown-none/debug/ebpf_tproxy"
     ))?;
     #[cfg(not(debug_assertions))]
     let mut bpf = Bpf::load(include_bytes_aligned!(
-        "../../target/bpfel-unknown-none/release/cls_ingress"
+        "../../target/bpfel-unknown-none/release/ebpf_tproxy"
     ))?;
     if let Err(e) = BpfLogger::init(&mut bpf) {
         // This can happen if you remove all log statements from your eBPF program.

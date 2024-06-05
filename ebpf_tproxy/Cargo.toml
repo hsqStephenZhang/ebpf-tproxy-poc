@@ -1,5 +1,5 @@
 [package]
-name = "cls_ingress"
+name = "ebpf_tproxy"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -8,7 +8,7 @@ publish = false
 aya = "0.12"
 aya-log = "0.2"
 clap = { version = "4.1", features = ["derive"] }
-cls_ingress-common = { path = "../cls_ingress-common", features = ["user"] }
+ebpf_tproxy-common = { path = "../ebpf_tproxy-common", features = ["user"] }
 anyhow = "1"
 env_logger = "0.10"
 libc = "0.2"
@@ -17,5 +17,5 @@ tokio = { version = "1.25", features = ["macros", "rt", "rt-multi-thread", "net"
 nix = "0.24"
 
 [[bin]]
-name = "cls_ingress"
+name = "ebpf_tproxy"
 path = "src/main.rs"
