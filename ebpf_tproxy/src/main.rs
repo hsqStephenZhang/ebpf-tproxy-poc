@@ -1,8 +1,14 @@
+#[allow(unused)]
+mod common;
+
+use common::*;
+
 use std::os::fd::FromRawFd;
 use std::str::FromStr;
 
 use anyhow::Context;
-use aya::programs::{tc, SchedClassifier};
+use aya::maps::SockHash;
+use aya::programs::{tc, SchedClassifier, SkMsg, SockOps};
 use aya::{include_bytes_aligned, Bpf};
 use aya_log::BpfLogger;
 use clap::Parser;
@@ -19,6 +25,8 @@ use nix::sys::socket::{
 
 #[derive(Debug, Parser)]
 struct Opt {
+    #[clap(short, long, default_value = "/sys/fs/cgroup/unified")]
+    cgroup_path: String,
     #[clap(short, long, default_value = "lo")]
     iface: String,
     #[clap(short, long, default_value = "wlo1")]
@@ -91,6 +99,22 @@ async fn main() -> Result<(), anyhow::Error> {
         let program: &mut SchedClassifier = bpf.program_mut("wan_egress").unwrap().try_into()?;
         program.load()?;
         program.attach(&opt.wan_iface, tc::TcAttachType::Egress)?;
+    }
+
+    {
+        let program: &mut SockOps = bpf.program_mut("tproxy_sockops").unwrap().try_into()?;
+        let cgroup = std::fs::File::open(opt.cgroup_path)?;
+        program.load()?;
+        program.attach(cgroup)?;
+    }
+
+    {
+        let intercept_egress =
+            SockHash::<_, Ipv4Tuple>::try_from(bpf.map("INTERCEPT_EGRESS_V4").unwrap())?;
+        let map_fd = intercept_egress.fd().try_clone()?;
+        let program: &mut SkMsg = bpf.program_mut("tproxy_msg").unwrap().try_into()?;
+        program.load()?;
+        program.attach(&map_fd)?;
     }
 
     tproxy_listen(&opt.addr, opt.port).await?;

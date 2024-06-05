@@ -1,5 +1,3 @@
-#![no_std]
-
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Ipv4Addr {
@@ -21,16 +19,10 @@ pub struct Ipv4Tuple {
     pub dst: Ipv4Addr,
 }
 
+unsafe impl aya::Pod for Ipv4Tuple {}
+
 impl Ipv4Tuple {
     pub fn new(protocol: u32, src: Ipv4Addr, dst: Ipv4Addr) -> Ipv4Tuple {
         Ipv4Tuple { protocol, src, dst }
-    }
-
-    pub fn reverse(self) -> Self {
-        Ipv4Tuple {
-            protocol: self.protocol,
-            src: self.dst,
-            dst: self.src,
-        }
     }
 }
