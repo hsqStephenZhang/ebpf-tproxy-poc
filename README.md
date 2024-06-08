@@ -86,6 +86,11 @@ Tips:
     route: for egress, the routing is to find the outbound interface, for ingress, the routing is to forward the traffic, or to pass the skb to the sk that it belongs to.
 ```
 
+## further readings
+
+- https://blog.cloudflare.com/sockmap-tcp-splicing-of-the-future/
+- https://github.com/daeuniverse/dae
+
 ## TODOS
 
 you must notice that, we hardcode the traffic to be intercepted: 
